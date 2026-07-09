@@ -8,6 +8,13 @@ export interface WeatherData {
   timezone: number;
 }
 
+export interface ThemeConfig {
+  bg: string;
+  glow: string;
+  accent: string;
+  particles: string[];
+}
+
 export interface SavedLocation {
   id: number;
   name: string;

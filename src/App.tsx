@@ -1,19 +1,13 @@
-import { useState, useEffect, useRef } from "react";
-import { Search, Wind, Droplets, Gauge, Eye, Thermometer, MapPin, RefreshCw, ArrowUp } from "lucide-react";
+import { useState, useEffect } from "react";
+import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
+import { HomePage } from "./pages/HomePage";
+import { HistoryPage } from "./pages/HistoryPage";
+import { SavedLocationsPage } from "./pages/SavedLocationsPage";
+import type { ThemeConfig, WeatherData } from "./types";
 
 const API_KEY = "dda41e776c9c7326ccebf0cbcdfd7cdf";
 
-interface WeatherData {
-  name: string;
-  sys: { country: string; sunrise: number; sunset: number };
-  main: { temp: number; feels_like: number; humidity: number; pressure: number; temp_min: number; temp_max: number };
-  weather: { main: string; description: string; icon: string }[];
-  wind: { speed: number; deg: number };
-  visibility: number;
-  timezone: number;
-}
-
-const weatherThemes: Record<string, { bg: string; glow: string; accent: string; particles: string[] }> = {
+const weatherThemes: Record<string, ThemeConfig> = {
   Clear: {
     bg: "from-[#0a1628] via-[#1a2f5e] to-[#2a4a8a]",
     glow: "rgba(255, 200, 50, 0.15)",
@@ -70,69 +64,22 @@ const weatherThemes: Record<string, { bg: string; glow: string; accent: string; 
   },
 };
 
-const defaultTheme = {
+const defaultTheme: ThemeConfig = {
   bg: "from-[#0a0f1e] via-[#0f1629] to-[#1a2040]",
   glow: "rgba(79, 168, 255, 0.1)",
   accent: "#4fa8ff",
   particles: ["🌤️"],
 };
 
-function getWindDirection(deg: number): string {
-  const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
-  return dirs[Math.round(deg / 45) % 8];
-}
-
-function formatTime(unix: number, tz: number): string {
-  const d = new Date((unix + tz) * 1000);
-  return d.toUTCString().slice(17, 22);
-}
-
-function StatCard({ icon, label, value, accent }: { icon: React.ReactNode; label: string; value: string; accent: string }) {
-  return (
-    <div
-      className="flex flex-col gap-2 p-4 rounded-2xl border border-white/10 backdrop-blur-md transition-all duration-300 hover:border-white/20 hover:scale-[1.02]"
-      style={{ background: "rgba(255,255,255,0.05)" }}
-    >
-      <div className="flex items-center gap-2 text-white/50 text-xs font-mono uppercase tracking-widest">
-        <span style={{ color: accent }}>{icon}</span>
-        {label}
-      </div>
-      <div className="text-white text-xl font-semibold" style={{ fontFamily: "Outfit, sans-serif" }}>
-        {value}
-      </div>
-    </div>
-  );
-}
-
-function FloatingParticle({ emoji, delay, duration, x }: { emoji: string; delay: number; duration: number; x: number }) {
-  return (
-    <div
-      className="absolute text-2xl pointer-events-none select-none opacity-20"
-      style={{
-        left: `${x}%`,
-        bottom: "-10%",
-        animation: `floatUp ${duration}s ${delay}s infinite linear`,
-      }}
-    >
-      {emoji}
-    </div>
-  );
-}
-
-export default function App() {
+function AppRoutes() {
   const [city, setCity] = useState("");
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [theme, setTheme] = useState(defaultTheme);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const particles = Array.from({ length: 8 }, (_, i) => ({
-    emoji: theme.particles[0],
-    delay: i * 1.5,
-    duration: 8 + i * 1.2,
-    x: 5 + i * 12,
-  }));
+  const [history, setHistory] = useState<string[]>([]);
+  const [savedLocations, setSavedLocations] = useState<string[]>([]);
+  const navigate = useNavigate();
 
   async function fetchWeather(cityName: string) {
     if (!cityName.trim()) return;
@@ -150,6 +97,8 @@ export default function App() {
         setWeather(data);
         const condition = data.weather[0].main;
         setTheme(weatherThemes[condition] ?? defaultTheme);
+        setHistory((prev) => [data.name, ...prev.filter((item) => item !== data.name)].slice(0, 8));
+        setCity(data.name);
       }
     } catch {
       setError("Network error. Please check your connection.");
@@ -162,195 +111,85 @@ export default function App() {
     fetchWeather(city);
   }
 
-  function handleKey(e: React.KeyboardEvent) {
+  function handleKey(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") handleSearch();
   }
 
+  function handleSaveLocation() {
+    if (!weather?.name) return;
+    setSavedLocations((prev) => (prev.includes(weather.name) ? prev : [...prev, weather.name]));
+  }
+
+  function handleSelectLocation(nextCity: string) {
+    setCity(nextCity);
+    navigate("/");
+    fetchWeather(nextCity);
+  }
+
+  function handleClearHistory() {
+    setHistory([]);
+  }
+
+  function handleRemoveSavedLocation(cityName: string) {
+    setSavedLocations((prev) => prev.filter((item) => item !== cityName));
+  }
+
   useEffect(() => {
+    const saved = localStorage.getItem("weather-history");
+    const pinned = localStorage.getItem("weather-saved");
+    if (saved) {
+      setHistory(JSON.parse(saved));
+    }
+    if (pinned) {
+      setSavedLocations(JSON.parse(pinned));
+    }
     fetchWeather("London");
-    setCity("");
   }, []);
 
-  const conditionLabel = weather?.weather[0].description ?? "";
-  const conditionCapped = conditionLabel.charAt(0).toUpperCase() + conditionLabel.slice(1);
+  useEffect(() => {
+    localStorage.setItem("weather-history", JSON.stringify(history));
+  }, [history]);
+
+  useEffect(() => {
+    localStorage.setItem("weather-saved", JSON.stringify(savedLocations));
+  }, [savedLocations]);
 
   return (
-    <div
-      className={`min-h-screen w-full relative overflow-hidden bg-gradient-to-br ${theme.bg} transition-all duration-1000`}
-      style={{ fontFamily: "Outfit, sans-serif" }}
-    >
-      <style>{`
-        @keyframes floatUp {
-          0% { transform: translateY(0) scale(1); opacity: 0.15; }
-          50% { opacity: 0.25; }
-          100% { transform: translateY(-110vh) scale(0.5); opacity: 0; }
-        }
-        @keyframes fadeInUp {
-          from { opacity: 0; transform: translateY(24px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .fade-in-up { animation: fadeInUp 0.5s ease forwards; }
-        .fade-in-up-delay-1 { animation: fadeInUp 0.5s 0.1s ease forwards; opacity: 0; }
-        .fade-in-up-delay-2 { animation: fadeInUp 0.5s 0.2s ease forwards; opacity: 0; }
-        .fade-in-up-delay-3 { animation: fadeInUp 0.5s 0.3s ease forwards; opacity: 0; }
-        ::-webkit-scrollbar { display: none; }
-      `}</style>
+    <div className={`min-h-screen w-full relative overflow-hidden bg-gradient-to-br ${theme.bg} transition-all duration-1000`} style={{ fontFamily: "Outfit, sans-serif" }}>
+      <div className="absolute inset-0 pointer-events-none" style={{ background: `radial-gradient(ellipse 60% 50% at 50% 30%, ${theme.glow}, transparent)`, transition: "background 1s ease" }} />
+      <div className="absolute inset-0 pointer-events-none opacity-[0.03]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
 
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background: `radial-gradient(ellipse 60% 50% at 50% 30%, ${theme.glow}, transparent)`,
-          transition: "background 1s ease",
-        }}
-      />
-
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {particles.map((p, i) => (
-          <FloatingParticle key={i} {...p} />
-        ))}
-      </div>
-
-      <div
-        className="absolute inset-0 pointer-events-none opacity-[0.03]"
-        style={{
-          backgroundImage: "linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)",
-          backgroundSize: "60px 60px",
-        }}
-      />
-
-      <div className="relative z-10 min-h-screen flex flex-col items-center px-4 py-12">
-        <div className="w-full max-w-2xl mb-10 fade-in-up">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: theme.accent }} />
-            <span className="text-xs font-mono uppercase tracking-widest text-white/40">Live Weather</span>
-          </div>
-          <h1 className="text-4xl font-bold text-white tracking-tight">
-            Weather <span style={{ color: theme.accent }}>Forecast</span>
-          </h1>
-          <p className="text-white/40 text-sm mt-1">Real-time atmospheric data from OpenWeatherMap</p>
-        </div>
-
-        <div className="w-full max-w-2xl mb-8 fade-in-up-delay-1">
-          <div
-            className="flex items-center gap-3 rounded-2xl border border-white/10 p-2 pl-4 backdrop-blur-md transition-all duration-300 focus-within:border-white/30"
-            style={{ background: "rgba(255,255,255,0.07)" }}
-          >
-            <MapPin size={18} className="text-white/40 shrink-0" />
-            <input
-              ref={inputRef}
-              type="text"
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              onKeyDown={handleKey}
-              placeholder="Search city — try Mumbai, Tokyo, New York..."
-              className="flex-1 bg-transparent text-white placeholder-white/30 outline-none text-sm"
-            />
-            <button
-              onClick={handleSearch}
-              disabled={loading}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 hover:opacity-90 hover:scale-[1.02] active:scale-95 disabled:opacity-50"
-              style={{ background: theme.accent, color: "#0a0f1e" }}
-            >
-              {loading ? <RefreshCw size={16} className="animate-spin" /> : <Search size={16} />}
-              Search
-            </button>
-          </div>
-          {error && (
-            <p className="mt-3 text-sm text-red-400/80 flex items-center gap-2 px-1">
-              <span>⚠️</span> {error}
-            </p>
-          )}
-        </div>
-
-        {weather && (
-          <div className="w-full max-w-2xl space-y-4">
-            <div
-              className="rounded-3xl border border-white/10 backdrop-blur-xl p-8 fade-in-up-delay-2 relative overflow-hidden"
-              style={{ background: "rgba(255,255,255,0.06)" }}
-            >
-              <div
-                className="absolute top-0 right-0 w-64 h-64 rounded-full pointer-events-none opacity-20 blur-3xl"
-                style={{ background: theme.accent, transform: "translate(30%, -30%)" }}
+      <div className="relative z-10 min-h-screen flex flex-col items-center px-4 py-8 sm:py-12">
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <HomePage
+                city={city}
+                setCity={setCity}
+                weather={weather}
+                loading={loading}
+                error={error}
+                theme={theme}
+                handleSearch={handleSearch}
+                handleKey={handleKey}
+                onSaveLocation={handleSaveLocation}
+                isSaved={savedLocations.includes(weather?.name ?? "")}
               />
-              <div className="relative flex flex-col sm:flex-row sm:items-center gap-6">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-3">
-                    <MapPin size={14} style={{ color: theme.accent }} />
-                    <span className="text-white font-semibold text-lg">
-                      {weather.name}
-                      <span className="text-white/40 text-sm font-normal ml-2">{weather.sys.country}</span>
-                    </span>
-                  </div>
-                  <div className="flex items-end gap-3 mb-2">
-                    <span className="text-8xl font-bold leading-none tracking-tighter" style={{ color: theme.accent }}>
-                      {Math.round(weather.main.temp)}°
-                    </span>
-                    <span className="text-white/50 text-2xl mb-3 font-light">C</span>
-                  </div>
-                  <p className="text-white/70 text-base font-medium mb-1">{conditionCapped}</p>
-                  <p className="text-white/40 text-sm font-mono">
-                    H:{Math.round(weather.main.temp_max)}° &nbsp; L:{Math.round(weather.main.temp_min)}°
-                  </p>
-                </div>
-                <div className="flex flex-col items-center gap-3">
-                  <img
-                    src={`https://openweathermap.org/img/wn/${weather.weather[0].icon}@4x.png`}
-                    alt={conditionCapped}
-                    className="w-28 h-28 object-contain drop-shadow-lg"
-                    style={{ filter: `drop-shadow(0 0 24px ${theme.accent}60)` }}
-                  />
-                  <div className="flex items-center gap-1.5 text-white/40 text-xs font-mono">
-                    <Thermometer size={12} />
-                    Feels like {Math.round(weather.main.feels_like)}°C
-                  </div>
-                </div>
-              </div>
-              <div className="mt-6 pt-6 border-t border-white/[0.07] flex items-center justify-between text-xs font-mono text-white/40">
-                <span>🌅 Sunrise &nbsp; {formatTime(weather.sys.sunrise, weather.timezone)}</span>
-                <div
-                  className="flex-1 mx-4 h-px"
-                  style={{ background: `linear-gradient(90deg, ${theme.accent}40, ${theme.accent}90, ${theme.accent}40)` }}
-                />
-                <span>🌇 Sunset &nbsp; {formatTime(weather.sys.sunset, weather.timezone)}</span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 fade-in-up-delay-3">
-              <StatCard icon={<Droplets size={14} />} label="Humidity" value={`${weather.main.humidity}%`} accent={theme.accent} />
-              <StatCard icon={<Wind size={14} />} label="Wind" value={`${weather.wind.speed} m/s ${getWindDirection(weather.wind.deg)}`} accent={theme.accent} />
-              <StatCard icon={<Gauge size={14} />} label="Pressure" value={`${weather.main.pressure} hPa`} accent={theme.accent} />
-              <StatCard icon={<Eye size={14} />} label="Visibility" value={`${(weather.visibility / 1000).toFixed(1)} km`} accent={theme.accent} />
-            </div>
-
-            <div
-              className="rounded-2xl border border-white/10 backdrop-blur-md p-5 flex items-center gap-6 fade-in-up-delay-3"
-              style={{ background: "rgba(255,255,255,0.05)" }}
-            >
-              <div className="relative w-14 h-14 shrink-0">
-                <div className="absolute inset-0 rounded-full border border-white/10 flex items-center justify-center">
-                  <ArrowUp
-                    size={22}
-                    className="transition-transform duration-700"
-                    style={{ color: theme.accent, transform: `rotate(${weather.wind.deg}deg)` }}
-                  />
-                </div>
-              </div>
-              <div>
-                <p className="text-white/40 text-xs font-mono uppercase tracking-widest mb-1">Wind Direction</p>
-                <p className="text-white text-lg font-semibold">
-                  {getWindDirection(weather.wind.deg)}{" "}
-                  <span className="text-white/40 text-sm font-normal">— {weather.wind.deg}°</span>
-                </p>
-                <p className="text-white/30 text-xs font-mono mt-0.5">Speed: {weather.wind.speed} m/s</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <p className="mt-12 text-white/20 text-xs font-mono text-center">
-          Powered by OpenWeatherMap API · Data updates in real-time
-        </p>
+            }
+          />
+          <Route path="/history" element={<HistoryPage history={history} onSelect={handleSelectLocation} onClear={handleClearHistory} />} />
+          <Route path="/saved" element={<SavedLocationsPage savedLocations={savedLocations} onSelect={handleSelectLocation} onRemove={handleRemoveSavedLocation} />} />
+        </Routes>
       </div>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AppRoutes />
+    </BrowserRouter>
   );
 }

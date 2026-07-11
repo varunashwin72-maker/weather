@@ -118,11 +118,11 @@ export function LoginPage() {
 
           {error ? <p className="text-sm text-rose-300">{error}</p> : null}
 
-          <button type="submit" disabled={loading} className="w-full rounded-[1rem] bg-gradient-to-r from-cyan-400 to-sky-500 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:opacity-90 disabled:opacity-60">
+          <button type="submit" disabled={loading} className="w-full rounded-[1rem] bg-gradient-to-r from-cyan-400 to-sky-500 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:opacity-90 disabled:opacity-50">
             {loading ? 'Working...' : mode === 'login' ? 'Login' : 'Create account'}
           </button>
 
-          <button type="button" onClick={handleGoogleSignIn} disabled={loading} className="flex w-full items-center justify-center gap-2 rounded-[1rem] border border-white/10 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/20 disabled:opacity-60">
+          <button type="button" onClick={handleGoogleSignIn} disabled={loading} className="flex w-full items-center justify-center gap-2 rounded-[1rem] border border-white/10 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/20 disabled:opacity-50">
             <Sparkles size={16} className="text-cyan-300" />
             Continue with Google
           </button>

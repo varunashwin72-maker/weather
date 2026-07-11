@@ -1,23 +1,19 @@
-import { type ReactNode } from "react";
+import { ReactNode } from "react";
 
 interface SectionCardProps {
   title: string;
-  description?: string;
+  description: string;
   children: ReactNode;
-  accent?: string;
 }
 
-export function SectionCard({ title, description, children, accent = "#8b5cf6" }: SectionCardProps) {
+export function SectionCard({ title, description, children }: SectionCardProps) {
   return (
-    <section className="rounded-[1.75rem] border border-white/10 bg-white/8 p-5 shadow-[0_24px_80px_rgba(2,6,23,0.28)] backdrop-blur-xl">
-      <div className="mb-4 flex items-start justify-between gap-4">
-        <div>
-          <h3 className="text-lg font-semibold text-white">{title}</h3>
-          {description ? <p className="mt-1 text-sm text-slate-400">{description}</p> : null}
-        </div>
-        <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: accent }} />
+    <div className="rounded-[2rem] border border-white/10 bg-slate-950/35 p-4 shadow-[0_30px_120px_rgba(2,6,23,0.35)] backdrop-blur-xl sm:p-6">
+      <div className="mb-5">
+        <h3 className="text-lg font-semibold text-white">{title}</h3>
+        <p className="mt-1 text-sm text-slate-400">{description}</p>
       </div>
       {children}
-    </section>
+    </div>
   );
 }

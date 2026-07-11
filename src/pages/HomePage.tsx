@@ -78,11 +78,11 @@ export function HomePage({
 }: HomePageProps) {
   const [activeInsight, setActiveInsight] = useState<"daily" | "travel" | "outdoor">("daily");
   const [assistantQuestion, setAssistantQuestion] = useState("What should I wear today?");
-  const [assistantAnswer, setAssistantAnswer] = useState("Ask about rain, travel, clothing, or tomorrow and I’ll tailor a response to your location.");
+  const [assistantAnswer, setAssistantAnswer] = useState("Ask about rain, travel, clothing, or tomorrow and I'll tailor a response to your location.");
   const [assistantLoading, setAssistantLoading] = useState(false);
 
   useEffect(() => {
-    if (weather && assistantAnswer === "Ask about rain, travel, clothing, or tomorrow and I’ll tailor a response to your location.") {
+    if (weather && assistantAnswer === "Ask about rain, travel, clothing, or tomorrow and I'll tailor a response to your location.") {
       setAssistantAnswer(buildAssistantReply(assistantQuestion, weather));
     }
   }, [weather]);
@@ -108,25 +108,25 @@ export function HomePage({
     }
 
     if (normalizedQuestion.includes("travel") || normalizedQuestion.includes("trip") || normalizedQuestion.includes("commute")) {
-      return `${location} is ${summary.toLowerCase()} with ${rainChance}% rain chance and ${windSpeed} m/s wind, so travel is ${comfortLevel(bundle.current.comfortIndex)}. Keep extra time for slower conditions if you are heading out.`;
+      return `${location} is ${summary.toLowerCase()} with ${rainChance}% rain chance and ${windSpeed} m/s wind, so travel is ${comfortLevel(bundle.current.comfortIndex)}. Keep extra time for slower journeys and allow buffer time for weather delays.`;
     }
 
     if (normalizedQuestion.includes("rain") || normalizedQuestion.includes("umbrella") || normalizedQuestion.includes("storm")) {
-      return `${location} has a ${rainChance}% chance of precipitation today, so an umbrella or shell is a smart idea. The air feels ${feelsLike}°C, which makes the weather feel ${feelsLike < temp ? "cooler" : "warmer"} than the thermometer suggests.`;
+      return `${location} has a ${rainChance}% chance of precipitation today, so an umbrella or shell is a smart idea. The air feels ${feelsLike}°C, which makes the weather feel ${feelsLike < temp ? "colder" : "warmer"} than the actual temperature.`;
     }
 
     if (normalizedQuestion.includes("tomorrow")) {
       if (tomorrow) {
-        return `Tomorrow in ${location} is shaping up around ${tomorrow.temp}°C with ${tomorrow.condition.toLowerCase()}. That suggests ${tomorrow.precipitation > 50 ? "a wetter and more cautious day" : "generally manageable outdoor plans"} if you are making plans early.`;
+        return `Tomorrow in ${location} is shaping up around ${tomorrow.temp}°C with ${tomorrow.condition.toLowerCase()}. That suggests ${tomorrow.precipitation > 50 ? "a wetter and more cautious approach to outdoor planning is wise." : "favorable conditions for most outdoor activities."}`;
       }
       return `Tomorrow in ${location} is expected to remain aligned with the current pattern, so it is worth checking the forecast again before you lock in a big outdoor plan.`;
     }
 
     if (normalizedQuestion.includes("outdoor") || normalizedQuestion.includes("run") || normalizedQuestion.includes("bike") || normalizedQuestion.includes("walk")) {
-      return `For ${location}, outdoor plans look ${rainChance > 45 ? "best with a backup option" : "very workable today"}. With ${temp}°C and ${windSpeed} m/s wind, the conditions feel ${comfortLevel(bundle.current.comfortIndex).toLowerCase()} for movement.`;
+      return `For ${location}, outdoor plans look ${rainChance > 45 ? "best with a backup option" : "very workable today"}. With ${temp}°C and ${windSpeed} m/s wind, the conditions feel ${comfortLevel(bundle.current.comfortIndex)} for sustained outdoor activities and recreation.`;
     }
 
-    return `In ${location}, the current outlook is ${summary.toLowerCase()} with a ${rainChance}% rain chance. It is a good time to keep an eye on the sky and adjust plans around the ${temp}°C temperature.`;
+    return `In ${location}, the current outlook is ${summary.toLowerCase()} with a ${rainChance}% rain chance. It is a good time to keep an eye on the sky and adjust plans around the ${temp}°C temperature and ${windSpeed} m/s wind speeds.`;
   }
 
   function comfortLevel(score: number): string {
@@ -176,7 +176,7 @@ export function HomePage({
       },
       {
         title: "Travel readiness",
-        content: weather.current.temperature > 20 ? "The day is ideal for travel and sightseeing when layered with light protection." : "Cooler conditions suggest extra layers and slower outdoor pacing.",
+        content: weather.current.temperature > 20 ? "The day is ideal for travel and sightseeing when layered with light protection." : "Cooler conditions suggest extra layers and slower outdoor transitions.",
         icon: <Navigation size={16} />,
       },
       {
@@ -337,7 +337,7 @@ export function HomePage({
               <button
                 onClick={handleAssistantSubmit}
                 disabled={assistantLoading || !weather}
-                className="rounded-[0.95rem] bg-gradient-to-r from-cyan-400 to-sky-500 px-3 py-2.5 text-sm font-semibold text-slate-950 transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-[0.95rem] bg-gradient-to-r from-cyan-400 to-sky-500 px-3 py-2.5 text-sm font-semibold text-slate-950 transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {assistantLoading ? <RefreshCw size={16} className="mx-auto animate-spin" /> : "Ask"}
               </button>
@@ -403,7 +403,7 @@ export function HomePage({
                     key={card.title}
                     whileHover={{ y: -4, scale: 1.01 }}
                     onClick={() => setActiveInsight(card.title === "AI insight" ? "daily" : card.title === "Travel readiness" ? "travel" : "outdoor")}
-                    className={`rounded-[1.2rem] border p-4 text-left transition ${activeInsight === (card.title === "AI insight" ? "daily" : card.title === "Travel readiness" ? "travel" : "outdoor") ? "border-cyan-400/30 bg-cyan-400/10" : "border-white/10 bg-white/5"}`}
+                    className={`rounded-[1.2rem] border p-4 text-left transition ${activeInsight === (card.title === "AI insight" ? "daily" : card.title === "Travel readiness" ? "travel" : "outdoor") ? "border-cyan-400/50 bg-cyan-400/10" : "border-white/10 bg-white/5 hover:bg-white/10"}`}
                   >
                     <div className="mb-3 flex items-center gap-2 text-cyan-300">{card.icon}<span className="text-sm font-medium">{card.title}</span></div>
                     <p className="text-sm leading-6 text-slate-400">{card.content}</p>
@@ -464,6 +464,13 @@ export function HomePage({
             <div className="flex items-center justify-between rounded-[1rem] border border-white/10 bg-white/5 px-3 py-3"><span>Storm alerts</span><span className="text-amber-300">Monitor</span></div>
             <div className="flex items-center justify-between rounded-[1rem] border border-white/10 bg-white/5 px-3 py-3"><span>Air quality</span><span className="text-emerald-300">Stable</span></div>
             <div className="flex items-center justify-between rounded-[1rem] border border-white/10 bg-white/5 px-3 py-3"><span>Travel comfort</span><span className="text-cyan-300">Excellent</span></div>
+          </div>
+        </SectionCard>
+        <SectionCard title="Health & wellness" description="UV exposure and allergy considerations.">
+          <div className="space-y-3 text-sm text-slate-400">
+            <div className="flex items-center justify-between rounded-[1rem] border border-white/10 bg-white/5 px-3 py-3"><span>UV exposure</span><span className="text-orange-300">Moderate</span></div>
+            <div className="flex items-center justify-between rounded-[1rem] border border-white/10 bg-white/5 px-3 py-3"><span>Pollen levels</span><span className="text-lime-300">Low</span></div>
+            <div className="flex items-center justify-between rounded-[1rem] border border-white/10 bg-white/5 px-3 py-3"><span>Comfort index</span><span className="text-sky-300">{weather?.current.comfortIndex}%</span></div>
           </div>
         </SectionCard>
       </motion.div>

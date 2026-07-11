@@ -1,84 +1,36 @@
-import { useState, useEffect } from "react";
-import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { BrowserRouter, Link, Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { HomePage } from "./pages/HomePage";
 import { HistoryPage } from "./pages/HistoryPage";
+import { LoginPage } from "./pages/LoginPage";
 import { SavedLocationsPage } from "./pages/SavedLocationsPage";
-import type { ThemeConfig, WeatherData } from "./types";
-
-const API_KEY = "dda41e776c9c7326ccebf0cbcdfd7cdf";
+import { fetchWeatherByCity } from "./services/weatherService";
+import { fetchMe, logoutUser, saveHistory } from "./lib/auth";
+import type { ThemeConfig, WeatherBundle } from "./types";
 
 const weatherThemes: Record<string, ThemeConfig> = {
-  Clear: {
-    bg: "from-[#0a1628] via-[#1a2f5e] to-[#2a4a8a]",
-    glow: "rgba(255, 200, 50, 0.15)",
-    accent: "#fbbf24",
-    particles: ["☀️"],
-  },
-  Clouds: {
-    bg: "from-[#1a1f2e] via-[#2a3142] to-[#3a4155]",
-    glow: "rgba(148, 163, 184, 0.1)",
-    accent: "#94a3b8",
-    particles: ["☁️"],
-  },
-  Rain: {
-    bg: "from-[#0d1b2e] via-[#1a2d4a] to-[#243858]",
-    glow: "rgba(99, 179, 237, 0.15)",
-    accent: "#63b3ed",
-    particles: ["🌧️"],
-  },
-  Drizzle: {
-    bg: "from-[#0d1b2e] via-[#1a2d4a] to-[#243858]",
-    glow: "rgba(99, 179, 237, 0.1)",
-    accent: "#63b3ed",
-    particles: ["🌦️"],
-  },
-  Thunderstorm: {
-    bg: "from-[#080d1a] via-[#0f1525] to-[#1a1f35]",
-    glow: "rgba(167, 139, 250, 0.2)",
-    accent: "#a78bfa",
-    particles: ["⛈️"],
-  },
-  Snow: {
-    bg: "from-[#0f1f35] via-[#1a2f48] to-[#243850]",
-    glow: "rgba(186, 230, 253, 0.15)",
-    accent: "#bae6fd",
-    particles: ["❄️"],
-  },
-  Mist: {
-    bg: "from-[#131a26] via-[#1e2738] to-[#283345]",
-    glow: "rgba(148, 163, 184, 0.08)",
-    accent: "#94a3b8",
-    particles: ["🌫️"],
-  },
-  Fog: {
-    bg: "from-[#131a26] via-[#1e2738] to-[#283345]",
-    glow: "rgba(148, 163, 184, 0.08)",
-    accent: "#94a3b8",
-    particles: ["🌫️"],
-  },
-  Haze: {
-    bg: "from-[#1a1510] via-[#2a2018] to-[#3a2e20]",
-    glow: "rgba(251, 191, 36, 0.1)",
-    accent: "#f59e0b",
-    particles: ["🌁"],
-  },
+  Clear: { bg: "from-[#07111e] via-[#14233b] to-[#274a6b]", glow: "rgba(255, 208, 92, 0.16)", accent: "#fbbf24", particles: ["☀️"] },
+  Clouds: { bg: "from-[#111827] via-[#1f2937] to-[#334155]", glow: "rgba(148, 163, 184, 0.12)", accent: "#cbd5e1", particles: ["☁️"] },
+  Rain: { bg: "from-[#0b1120] via-[#172554] to-[#1e3a8a]", glow: "rgba(87, 171, 255, 0.16)", accent: "#38bdf8", particles: ["🌧️"] },
+  Drizzle: { bg: "from-[#0b1120] via-[#172554] to-[#1e3a8a]", glow: "rgba(87, 171, 255, 0.14)", accent: "#38bdf8", particles: ["🌦️"] },
+  Thunderstorm: { bg: "from-[#070b14] via-[#111827] to-[#1f2937]", glow: "rgba(147, 197, 253, 0.16)", accent: "#8b5cf6", particles: ["⛈️"] },
+  Snow: { bg: "from-[#0f172a] via-[#1e293b] to-[#334155]", glow: "rgba(186, 230, 253, 0.14)", accent: "#bae6fd", particles: ["❄️"] },
+  Mist: { bg: "from-[#0f172a] via-[#1e293b] to-[#334155]", glow: "rgba(148, 163, 184, 0.1)", accent: "#94a3b8", particles: ["🌫️"] },
+  Fog: { bg: "from-[#0f172a] via-[#1e293b] to-[#334155]", glow: "rgba(148, 163, 184, 0.1)", accent: "#94a3b8", particles: ["🌫️"] },
+  Haze: { bg: "from-[#19130b] via-[#2b1d0d] to-[#3d2d13]", glow: "rgba(249, 115, 22, 0.12)", accent: "#fb923c", particles: ["🌁"] },
 };
 
-const defaultTheme: ThemeConfig = {
-  bg: "from-[#0a0f1e] via-[#0f1629] to-[#1a2040]",
-  glow: "rgba(79, 168, 255, 0.1)",
-  accent: "#4fa8ff",
-  particles: ["🌤️"],
-};
+const defaultTheme: ThemeConfig = { bg: "from-[#020617] via-[#0f172a] to-[#111827]", glow: "rgba(56, 189, 248, 0.12)", accent: "#38bdf8", particles: ["🌤️"] };
 
 function AppRoutes() {
   const [city, setCity] = useState("");
-  const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [weather, setWeather] = useState<WeatherBundle | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [theme, setTheme] = useState(defaultTheme);
   const [history, setHistory] = useState<string[]>([]);
   const [savedLocations, setSavedLocations] = useState<string[]>([]);
+  const [user, setUser] = useState<{ id: string; name: string; email: string } | null>(null);
   const navigate = useNavigate();
 
   async function fetchWeather(cityName: string) {
@@ -86,22 +38,22 @@ function AppRoutes() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(
-        `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(cityName)}&units=metric&appid=${API_KEY}`
-      );
-      const data = await res.json();
-      if (data.cod !== 200) {
-        setError("City not found. Please try another location.");
-        setWeather(null);
-      } else {
-        setWeather(data);
-        const condition = data.weather[0].main;
-        setTheme(weatherThemes[condition] ?? defaultTheme);
-        setHistory((prev) => [data.name, ...prev.filter((item) => item !== data.name)].slice(0, 8));
-        setCity(data.name);
+      const bundle = await fetchWeatherByCity(cityName);
+      setWeather(bundle);
+      const condition = bundle.current.description;
+      setTheme(weatherThemes[condition.includes("rain") ? "Rain" : condition.includes("cloud") ? "Clouds" : condition.includes("snow") ? "Snow" : condition.includes("storm") ? "Thunderstorm" : "Clear"] ?? defaultTheme);
+      setHistory((prev) => [bundle.current.city, ...prev.filter((item) => item !== bundle.current.city)].slice(0, 8));
+      setCity(bundle.current.city);
+      if (localStorage.getItem('aurora-token')) {
+        try {
+          void saveHistory(bundle.current.city);
+        } catch {
+          // ignore backend sync failures
+        }
       }
     } catch {
-      setError("Network error. Please check your connection.");
+      setError("Weather data could not be loaded. Try a different city.");
+      setWeather(null);
     } finally {
       setLoading(false);
     }
@@ -111,13 +63,13 @@ function AppRoutes() {
     fetchWeather(city);
   }
 
-  function handleKey(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter") handleSearch();
+  function handleKey(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Enter") handleSearch();
   }
 
   function handleSaveLocation() {
-    if (!weather?.name) return;
-    setSavedLocations((prev) => (prev.includes(weather.name) ? prev : [...prev, weather.name]));
+    if (!weather?.current.city) return;
+    setSavedLocations((prev) => (prev.includes(weather.current.city) ? prev : [...prev, weather.current.city]));
   }
 
   function handleSelectLocation(nextCity: string) {
@@ -143,7 +95,18 @@ function AppRoutes() {
     if (pinned) {
       setSavedLocations(JSON.parse(pinned));
     }
-    fetchWeather("London");
+
+    const token = localStorage.getItem('aurora-token');
+    if (token) {
+      void fetchMe()
+        .then((response) => setUser(response.user))
+        .catch(() => {
+          logoutUser();
+          setUser(null);
+        });
+    }
+
+    void fetchWeather("London");
   }, []);
 
   useEffect(() => {
@@ -155,12 +118,19 @@ function AppRoutes() {
   }, [savedLocations]);
 
   return (
-    <div className={`min-h-screen w-full relative overflow-hidden bg-gradient-to-br ${theme.bg} transition-all duration-1000`} style={{ fontFamily: "Outfit, sans-serif" }}>
-      <div className="absolute inset-0 pointer-events-none" style={{ background: `radial-gradient(ellipse 60% 50% at 50% 30%, ${theme.glow}, transparent)`, transition: "background 1s ease" }} />
-      <div className="absolute inset-0 pointer-events-none opacity-[0.03]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
-
-      <div className="relative z-10 min-h-screen flex flex-col items-center px-4 py-8 sm:py-12">
+    <div className={`relative min-h-screen w-full overflow-hidden bg-gradient-to-br ${theme.bg} transition-all duration-1000`} style={{ fontFamily: "Outfit, sans-serif" }}>
+      <div className="pointer-events-none absolute inset-0" style={{ background: `radial-gradient(ellipse 60% 50% at 50% 30%, ${theme.glow}, transparent)`, transition: "background 1s ease" }} />
+      <div className="pointer-events-none absolute inset-0 opacity-[0.04]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
+      <div className="relative z-10 flex min-h-screen flex-col items-center px-3 py-4 sm:px-6 sm:py-8">
+        {!user ? (
+          <div className="mb-4 flex w-full max-w-6xl justify-end">
+            <Link to="/login" className="rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm text-slate-200 backdrop-blur transition hover:bg-white/20">
+              Login / Register
+            </Link>
+          </div>
+        ) : null}
         <Routes>
+          <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
           <Route
             path="/"
             element={
@@ -174,7 +144,7 @@ function AppRoutes() {
                 handleSearch={handleSearch}
                 handleKey={handleKey}
                 onSaveLocation={handleSaveLocation}
-                isSaved={savedLocations.includes(weather?.name ?? "")}
+                isSaved={savedLocations.includes(weather?.current.city ?? "")}
               />
             }
           />

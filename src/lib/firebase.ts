@@ -18,8 +18,8 @@ function hasFirebaseConfig(config: typeof firebaseConfig) {
 }
 
 let app: ReturnType<typeof initializeApp> | null = null;
-let auth: Auth | null = null;
-let db: Firestore | null = null;
+export let auth: Auth | null = null;
+export let db: Firestore | null = null;
 let googleProvider: GoogleAuthProvider | null = null;
 
 if (hasFirebaseConfig(firebaseConfig)) {

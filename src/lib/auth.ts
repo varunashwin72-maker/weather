@@ -23,15 +23,19 @@ export async function loginWithGoogle(): Promise<{ user: AuthUser }> {
 }
 
 export async function fetchMe(): Promise<{ user: AuthUser }> {
-  const currentUser = auth.currentUser;
+  const currentUser = auth?.currentUser;
   if (!currentUser) {
     throw new Error('No authenticated user');
   }
   return { user: { id: currentUser.uid, name: currentUser.displayName || 'Weather User', email: currentUser.email || '' } };
 }
 
-export async function saveHistory(location: string, uid: string): Promise<void> {
-  await saveUserHistory(uid, location);
+export async function saveHistory(location: string): Promise<void> {
+  const currentUser = auth?.currentUser;
+  if (!currentUser) {
+    throw new Error('No authenticated user');
+  }
+  await saveUserHistory(currentUser.uid, location);
 }
 
 export async function fetchHistory(uid: string): Promise<{ history: string[] }> {
@@ -44,6 +48,9 @@ export async function logoutUser(): Promise<void> {
 }
 
 export async function fetchUserProfile(uid: string): Promise<AuthUser | null> {
+  if (!db) {
+    throw new Error('Firebase Firestore is not configured');
+  }
   const q = query(collection(db, 'users'), where('uid', '==', uid));
   const snapshot = await getDocs(q);
   if (snapshot.empty) return null;

@@ -82,7 +82,7 @@ export function HomePage({
   const [assistantLoading, setAssistantLoading] = useState(false);
 
   useEffect(() => {
-    if (weather && assistantAnswer === "Ask about rain, travel, clothing, or tomorrow and I’ll tailor a response to your location.") {
+    if (weather && assistantAnswer === "Ask about rain, travel, clothing, or tomorrow and I’ll tailor the answer to the right location.") {
       setAssistantAnswer(buildAssistantReply(assistantQuestion, weather));
     }
   }, [weather]);
@@ -108,22 +108,22 @@ export function HomePage({
     }
 
     if (normalizedQuestion.includes("travel") || normalizedQuestion.includes("trip") || normalizedQuestion.includes("commute")) {
-      return `${location} is ${summary.toLowerCase()} with ${rainChance}% rain chance and ${windSpeed} m/s wind, so travel is ${comfortLevel(bundle.current.comfortIndex)}. Keep extra time for slower conditions if you are heading out.`;
+      return `${location} is ${summary.toLowerCase()} with ${rainChance}% rain chance and ${windSpeed} m/s wind, so travel is ${comfortLevel(bundle.current.comfortIndex)}. Keep extra time for slower conditions.`;
     }
 
     if (normalizedQuestion.includes("rain") || normalizedQuestion.includes("umbrella") || normalizedQuestion.includes("storm")) {
-      return `${location} has a ${rainChance}% chance of precipitation today, so an umbrella or shell is a smart idea. The air feels ${feelsLike}°C, which makes the weather feel ${feelsLike < temp ? "cooler" : "warmer"} than the thermometer suggests.`;
+      return `${location} has a ${rainChance}% chance of precipitation today, so an umbrella or shell is a smart idea. The air feels ${feelsLike}°C.`;
     }
 
     if (normalizedQuestion.includes("tomorrow")) {
       if (tomorrow) {
-        return `Tomorrow in ${location} is shaping up around ${tomorrow.temp}°C with ${tomorrow.condition.toLowerCase()}. That suggests ${tomorrow.precipitation > 50 ? "a wetter and more cautious day" : "generally manageable outdoor plans"} if you are making plans early.`;
+        return `Tomorrow in ${location} is shaping up around ${tomorrow.temp}°C with ${tomorrow.condition.toLowerCase()}. That suggests ${tomorrow.precipitation > 50 ? "a wetter and more cautious day" : "similar conditions"}.`;
       }
       return `Tomorrow in ${location} is expected to remain aligned with the current pattern, so it is worth checking the forecast again before you lock in a big outdoor plan.`;
     }
 
     if (normalizedQuestion.includes("outdoor") || normalizedQuestion.includes("run") || normalizedQuestion.includes("bike") || normalizedQuestion.includes("walk")) {
-      return `For ${location}, outdoor plans look ${rainChance > 45 ? "best with a backup option" : "very workable today"}. With ${temp}°C and ${windSpeed} m/s wind, the conditions feel ${comfortLevel(bundle.current.comfortIndex).toLowerCase()} for movement.`;
+      return `For ${location}, outdoor plans look ${rainChance > 45 ? "best with a backup option" : "very workable today"}. With ${temp}°C and ${windSpeed} m/s wind, the conditions feel comfortable.`;
     }
 
     return `In ${location}, the current outlook is ${summary.toLowerCase()} with a ${rainChance}% rain chance. It is a good time to keep an eye on the sky and adjust plans around the ${temp}°C temperature.`;
@@ -136,14 +136,39 @@ export function HomePage({
     return "challenging";
   }
 
+  async function askAssistant(question: string) {
+    const trimmed = question.trim();
+    if (!trimmed || !weather) return;
+    setAssistantLoading(true);
+    try {
+      const lat = weather.current.lat;
+      const lon = weather.current.lon;
+      const res = await fetch('/api/qa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat, lon, question: trimmed }),
+      });
+      const j = await res.json();
+      const ans = j?.answer || j?.answer === '' ? j.answer : null;
+      if (ans) {
+        setAssistantAnswer(ans);
+        try { if ('speechSynthesis' in window && ans) window.speechSynthesis.speak(new SpeechSynthesisUtterance(ans)); } catch {}
+      } else {
+        // fallback to local reply
+        setAssistantAnswer(buildAssistantReply(trimmed, weather));
+      }
+    } catch (err) {
+      // network/LLM failed - fallback to local heuristic
+      setAssistantAnswer(buildAssistantReply(trimmed, weather));
+    } finally {
+      setAssistantLoading(false);
+    }
+  }
+
   function handleAssistantSubmit() {
     const trimmed = assistantQuestion.trim();
-    if (!trimmed) return;
-    setAssistantLoading(true);
-    window.setTimeout(() => {
-      setAssistantAnswer(buildAssistantReply(trimmed, weather));
-      setAssistantLoading(false);
-    }, 350);
+    if (!trimmed || !weather) return;
+    void askAssistant(trimmed);
   }
 
   function handleTravelGuidance() {
@@ -152,11 +177,8 @@ export function HomePage({
     setAssistantQuestion(prompt);
     setAssistantAnswer("Preparing a travel-ready outlook for your destination...");
     setAssistantLoading(true);
-    window.setTimeout(() => {
-      setAssistantAnswer(buildAssistantReply(prompt, weather));
-      setAssistantLoading(false);
-      document.getElementById("ai-assistant")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 250);
+    // use AI backend if available, otherwise local helper
+    void askAssistant(prompt);
   }
 
   const insightCards = useMemo(() => {
@@ -176,7 +198,7 @@ export function HomePage({
       },
       {
         title: "Travel readiness",
-        content: weather.current.temperature > 20 ? "The day is ideal for travel and sightseeing when layered with light protection." : "Cooler conditions suggest extra layers and slower outdoor pacing.",
+        content: weather.current.temperature > 20 ? "The day is ideal for travel and sightseeing when layered with light protection." : "Cooler conditions suggest extra layers and slower outdoor plans.",
         icon: <Navigation size={16} />,
       },
       {
@@ -355,10 +377,7 @@ export function HomePage({
                     setAssistantQuestion(prompt);
                     setAssistantAnswer("Thinking through the forecast for your destination...");
                     setAssistantLoading(true);
-                    window.setTimeout(() => {
-                      setAssistantAnswer(buildAssistantReply(prompt, weather));
-                      setAssistantLoading(false);
-                    }, 300);
+                    void askAssistant(prompt);
                   }}
                   className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 transition hover:bg-white/10"
                 >
@@ -403,8 +422,7 @@ export function HomePage({
                     key={card.title}
                     whileHover={{ y: -4, scale: 1.01 }}
                     onClick={() => setActiveInsight(card.title === "AI insight" ? "daily" : card.title === "Travel readiness" ? "travel" : "outdoor")}
-                    className={`rounded-[1.2rem] border p-4 text-left transition ${activeInsight === (card.title === "AI insight" ? "daily" : card.title === "Travel readiness" ? "travel" : "outdoor") ? "border-cyan-400/30 bg-cyan-400/10" : "border-white/10 bg-white/5"}`}
-                  >
+                    className={`rounded-[1.2rem] border p-4 text-left transition ${activeInsight === (card.title === "AI insight" ? "daily" : card.title === "Travel readiness" ? "travel" : "outdoor") ? "border-cyan-300 bg-white/5" : "bg-transparent"}`}>
                     <div className="mb-3 flex items-center gap-2 text-cyan-300">{card.icon}<span className="text-sm font-medium">{card.title}</span></div>
                     <p className="text-sm leading-6 text-slate-400">{card.content}</p>
                   </motion.button>
@@ -429,18 +447,9 @@ export function HomePage({
 
             <SectionCard title="Travel & lifestyle" description="Suggested conditions for everyday plans.">
               <div className="space-y-3 text-sm text-slate-400">
-                <div className="flex items-center justify-between rounded-[1rem] border border-white/10 bg-white/5 px-3 py-3">
-                  <span className="flex items-center gap-2"><Compass size={15} className="text-cyan-300" /> Driving</span>
-                  <span className="text-white">Comfortable</span>
-                </div>
-                <div className="flex items-center justify-between rounded-[1rem] border border-white/10 bg-white/5 px-3 py-3">
-                  <span className="flex items-center gap-2"><Waves size={15} className="text-cyan-300" /> Marine</span>
-                  <span className="text-white">Moderate</span>
-                </div>
-                <div className="flex items-center justify-between rounded-[1rem] border border-white/10 bg-white/5 px-3 py-3">
-                  <span className="flex items-center gap-2"><SunMedium size={15} className="text-cyan-300" /> Photography</span>
-                  <span className="text-white">Excellent</span>
-                </div>
+                <div className="flex items-center justify-between rounded-[1rem] border border-white/10 bg-white/5 px-3 py-3"><span className="flex items-center gap-2"><Compass size={15} className="text-cyan-300" /> Driving</span><span className="text-white">Comfortable</span></div>
+                <div className="flex items-center justify-between rounded-[1rem] border border-white/10 bg-white/5 px-3 py-3"><span className="flex items-center gap-2"><Waves size={15} className="text-cyan-300" /> Marine</span><span className="text-white">Moderate</span></div>
+                <div className="flex items-center justify-between rounded-[1rem] border border-white/10 bg-white/5 px-3 py-3"><span className="flex items-center gap-2"><SunMedium size={15} className="text-cyan-300" /> Photography</span><span className="text-white">Excellent</span></div>
               </div>
             </SectionCard>
           </div>
